@@ -61,6 +61,12 @@ impl Iterator for BitVec {
     }
 }
 
+impl Default for BitVec {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BitVec {
     /// Creates a new [BitVec] with initialised first byte
     pub fn new() -> BitVec {
