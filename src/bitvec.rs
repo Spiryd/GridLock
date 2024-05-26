@@ -76,8 +76,8 @@ impl BitVec {
     pub fn from_bytes(bytes: Vec<u8>) -> BitVec {
         BitVec {
             vec: bytes.clone(),
-            inside_idx: 0,
-            outside_idx: bytes.len(),
+            inside_idx: 8,
+            outside_idx: bytes.len() - 1,
             inside_itr_couner: 0,
             outside_itr_couner: 0,
         }
