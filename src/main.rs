@@ -86,7 +86,7 @@ impl GridLock {
         let mut ciphertext = Vec::new();
         let mut s = Vec::new();
         for i in 0..self.m {
-            if self.rng.gen_bool(0.5) {
+            if self.rng.gen_bool(1.0 / self.m as f64) {
                 s.push(i);
             }
         }
