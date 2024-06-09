@@ -24,6 +24,6 @@ def main(n, epsilon=0.1):
     print(f"Calculated m: {m}")
 
 if __name__ == "__main__":
-    n = int(input("Security param N: "))  # Example value of n
-    epsilon = 0.1  # Example value of epsilon
+    n = int(input("Security param N: "))
+    epsilon = 0.1
     main(n, epsilon)
