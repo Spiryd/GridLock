@@ -1,138 +1,84 @@
-use rand::{
-    distributions::{Distribution, Uniform},
-    Rng, SeedableRng,
-};
-use rand_hc::Hc128Rng;
-
 mod z;
-use z::Z;
 
 mod bitvec;
-use bitvec::{Bit, BitVec};
+use bitvec::BitVec;
 
-/// security parameter n
-const N: usize = 16;
+mod grid_lock;
+use grid_lock::{GridLock, N, P};
 
-/// p should be a prime where p >= 2 and n^2 < p < 2n^2
-const P: usize = 263;
-
-/// m = (1 + ε)(n + 1) log p for some arbitrary constant ε >= 0
-/// e.g. ε = 0.1
-const M: usize = 43;
-
-/// GridLock is a lattice-based cryptographic scheme
-/// based on the Learning With Errors (LWE) problem
-/// as described in [arXiv:2401.03703](https://arxiv.org/abs/2401.03703)
-#[derive(Debug)]
-pub struct GridLock {
-    n: usize,
-    m: usize,
-    p: usize,
-    uniform: Uniform<Z>,
-    rng: Hc128Rng,
-}
-
-impl Default for GridLock {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl GridLock {
-    /// Create a new [GridLock] instance
-    pub fn new() -> GridLock {
-        GridLock {
-            n: N,
-            m: M,
-            p: P,
-            uniform: Uniform::new_inclusive(Z::new(0), Z::new(P - 1)),
-            rng: Hc128Rng::from_entropy(),
-        }
-    }
-    /// Generate a private key
-    pub fn gen_secret_key(&mut self) -> Vec<Z> {
-        self.gen_vector()
-    }
-    /// Generate a public key
-    pub fn gen_public_key(&mut self, s: &[Z]) -> Vec<(Vec<Z>, Z)> {
-        // Generate m vectors a_1, ..., a_m in Z^n_p independently from the uniform distribution
-        let a = (0..self.m).map(|_| self.gen_vector()).collect::<Vec<_>>();
-        // to be changed after implementing correct distribution !!!!
-        //choose elements e_1, ..., e_m ∈ Z_p independently according to chi
-        let e = vec![Z::new(1); self.m];
-        // b_i = <a_i, s> + e_i
-        let mut b = Vec::new();
-        for i in 0..self.m {
-            let mut sum = Z::new(0);
-            for j in 0..self.n {
-                sum += a[i][j] * s[j];
-            }
-            b.push(sum + e[i]);
-        }
-        // return (a_i, b_i)^m_i=1
-        a.iter()
-            .cloned()
-            .zip(b.iter().cloned())
-            .collect::<Vec<(Vec<Z>, Z)>>()
-    }
-    /// Generate a vector of random uniform elements in Z_p
-    fn gen_vector(&mut self) -> Vec<Z> {
-        (0..self.n)
-            .map(|_| self.uniform.sample(&mut self.rng))
-            .collect()
-    }
-    /// Encrypt a message
-    pub fn encrypt(&mut self, public_key: &[(Vec<Z>, Z)], message: BitVec) -> Vec<(Vec<Z>, Z)> {
-        let mut ciphertext = Vec::new();
-        let mut s = Vec::new();
-        for i in 0..self.m {
-            if self.rng.gen_bool(1.0 / self.m as f64) {
-                s.push(i);
-            }
-        }
-        for bit in message {
-            let mut encrypted_bit = (vec![Z::new(0); self.n], Z::new(0));
-            for i in &s {
-                for j in 0..self.n {
-                    encrypted_bit.0[j] += public_key[*i].0[j];
-                }
-                encrypted_bit.1 += public_key[*i].1;
-            }
-            if bit == Bit::One {
-                encrypted_bit.1 += Z::new(self.p / 2);
-            }
-            ciphertext.push(encrypted_bit);
-        }
-        ciphertext
-    }
-    /// Decrypt a message
-    pub fn decrypt(&self, secret_key: &[Z], ciphertext: &Vec<(Vec<Z>, Z)>) -> BitVec {
-        let mut message = BitVec::new();
-        for (a, b) in ciphertext {
-            let dot_product = a
-                .iter()
-                .zip(secret_key.iter())
-                .map(|(&a, &s)| a * s)
-                .sum::<Z>();
-            if (*b - dot_product).distance_to_zero()
-                > (*b - dot_product).distance_to(&Z::new(self.p / 2))
-            {
-                message.push(Bit::One);
-            } else {
-                message.push(Bit::Zero);
-            }
-        }
-        message
-    }
-}
+use dialoguer::{theme::ColorfulTheme, Select, Input};
 
 fn main() {
     let mut grid_lock = GridLock::new();
-    let secret_key = grid_lock.gen_secret_key();
-    let public_key = grid_lock.gen_public_key(&secret_key);
-    let message = BitVec::from_bytes(vec![2, 1, 3, 7]);
-    println!("{:?}", message);
-    let ciphertext = grid_lock.encrypt(&public_key, message.clone());
-    let decrypted_message = grid_lock.decrypt(&secret_key, &ciphertext);
-    println!("{:?}", decrypted_message);
+    let selections = &["Generate Key Pair", "Encrypt", "Decrypt", "Exit"];
+    println!("Welcome to the GridLock Cryptosystem");
+    loop {
+        let selection = Select::with_theme(&ColorfulTheme::default())
+            .with_prompt("Select an option")
+            .items(&selections[..])
+            .default(0)
+            .interact()
+            .unwrap();
+        match selection {
+            0 => {
+                let secret_key = grid_lock.gen_secret_key();
+                println!("Secret Key Generated");
+                let encoded_secret_key = ron::to_string(&secret_key).unwrap();
+                println!("Saving Secret Key");
+                std::fs::write("sk.ron", encoded_secret_key).expect("Failed to write secret key to file");
+                println!("Secret Key saved to sk.ron");
+                let public_key = grid_lock.gen_public_key(&secret_key);
+                println!("Public Key Generated");
+                let encoded_public_key = ron::to_string(&public_key).unwrap();
+                println!("Saving Public Key");
+                std::fs::write("pk.ron", encoded_public_key).expect("Failed to write public key to file");
+                println!("Public Key saved to pk.ron");
+            }
+            1 => {
+                let encoded_public_key = std::fs::read_to_string("pk.ron").expect("Failed to read public key from file");
+                let public_key: Vec<(Vec<z::Z>, z::Z)> = ron::from_str(&encoded_public_key).unwrap();
+                println!("Public Key Loaded");
+                let encryptee_path: String = Input::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Path to file to encrypt")
+                    .interact_text()
+                    .unwrap();
+                let encryptee = BitVec::from_bytes(std::fs::read(encryptee_path).unwrap());
+                let encrypted = grid_lock.encrypt(&public_key, encryptee);
+                println!("Encryption Complete");
+                let encoded_encrypted = ron::to_string(&encrypted).unwrap();
+                let encrypted_path: String = Input::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Path to save encrypted file")
+                    .interact_text()
+                    .unwrap();
+                std::fs::write(&encrypted_path, encoded_encrypted).expect("Failed to write encrypted file to disk");
+                println!("Encrypted file saved to {}", encrypted_path);
+            }
+            2 => {
+                let encoded_secret_key = std::fs::read_to_string("sk.ron").expect("Failed to read secret key from file");
+                let secret_key: Vec<z::Z> = ron::from_str(&encoded_secret_key).unwrap();
+                println!("Secret Key Loaded");
+                let encrypted_path: String = Input::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Path to file to decrypt")
+                    .interact_text()
+                    .unwrap();
+                let encoded_encrypted = std::fs::read_to_string(encrypted_path).expect("Failed to read encrypted file from disk");
+                let encrypted: Vec<(Vec<z::Z>, z::Z)> = ron::from_str(&encoded_encrypted).unwrap();
+                let decrypted = grid_lock.decrypt(&secret_key, &encrypted);
+                println!("Decryption Complete");
+                let decrypted_path: String = Input::with_theme(&ColorfulTheme::default())
+                    .with_prompt("Path to save decrypted file")
+                    .interact_text()
+                    .unwrap();
+                std::fs::write(&decrypted_path, decrypted.to_bytes()).expect("Failed to write decrypted file to disk");
+                println!("Decrypted file saved to {}", decrypted_path);
+            }
+            3 => {
+                println!("Goodbye!");
+                break;
+            }
+            _ => {
+                println!("Invalid selection");
+            }
+        } 
+    }
 }

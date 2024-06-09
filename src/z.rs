@@ -1,10 +1,13 @@
 use std::{cmp::min, iter::Sum};
 
 use rand::distributions::uniform::{SampleUniform, UniformInt, UniformSampler};
+use rand_distr::{Normal, Distribution};
+use rand_hc::Hc128Rng;
+use serde::{Deserialize, Serialize};
 
-use crate::P;
+use crate::{N, P};
 
-#[derive(Debug, Clone, Copy, Eq)]
+#[derive(Debug, Clone, Copy, Eq, Serialize, Deserialize)]
 pub struct Z(usize);
 
 impl std::fmt::Display for Z {
@@ -78,6 +81,26 @@ impl std::ops::Mul for Z {
 
     fn mul(self, other: Z) -> Z {
         Z((self.0 * other.0) % P)
+    }
+}
+
+fn alpha(n: f64) -> f64 {
+    1. / n.sqrt() * n.ln().powf(2.) 
+}
+
+pub struct ChiDistribution<'a> {
+    normal: Normal<f64>,
+    rng: &'a mut Hc128Rng
+}
+
+impl<'a> ChiDistribution<'a> {
+    pub fn new(rng: &'a mut Hc128Rng) -> Self {
+        let alpha = alpha(N as f64);
+        let normal = Normal::new(0., alpha).unwrap();
+        ChiDistribution { normal, rng }
+    }
+    pub fn get(&mut self) -> Z {
+        Z::new(self.normal.sample(&mut self.rng) as usize)
     }
 }
 

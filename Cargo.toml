@@ -9,3 +9,7 @@ authors = ["Maksymilian Neumann<neumann.maks@gmail.com>"]
 [dependencies]
 rand = "0.8.5"
 rand_hc = "0.3.2"
+rand_distr = "0.4.3"
+dialoguer = "0.11.0"
+serde = { version = "1.0", features = ["derive"] }
+ron = "0.8"
