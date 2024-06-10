@@ -16,3 +16,5 @@ Cargo.lock
 # GridLock specific
 *.gl
 *.ron
+sk
+pk
