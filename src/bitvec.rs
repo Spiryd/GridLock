@@ -1,5 +1,6 @@
 use Bit::*;
 
+
 /// Enum symbolising bits
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Bit {
@@ -7,6 +8,7 @@ pub enum Bit {
     One,
 }
 
+#[allow(dead_code)]
 impl Bit {
     pub fn to_u8(&self) -> u8 {
         match self {
@@ -67,6 +69,7 @@ impl Default for BitVec {
     }
 }
 
+#[allow(dead_code)]
 impl BitVec {
     /// Creates a new [BitVec] with initialised first byte
     pub fn new() -> BitVec {
