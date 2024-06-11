@@ -111,6 +111,7 @@ impl GridLock {
     /// Decrypt a message
     pub fn decrypt(&self, secret_key: &[Z], ciphertext: &Vec<(Vec<Z>, Z)>) -> BitVec {
         let mut message = BitVec::new();
+        // (a, b) is 0 if b - <a, s> is closer to 0 than to floor(p/2) mod p otherwise 1
         for (a, b) in ciphertext {
             let dot_product = a
                 .iter()
