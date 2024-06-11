@@ -86,12 +86,14 @@ impl GridLock {
     pub fn encrypt(&mut self, public_key: &[(Vec<Z>, Z)], message: BitVec) -> Vec<(Vec<Z>, Z)> {
         let mut ciphertext = Vec::new();
         let mut s = Vec::new();
+        // choose a random subset S of [m]
         for i in 0..self.m {
             if self.rng.gen_bool(1.0 / self.m as f64) {
                 s.push(i);
             }
         }
         for bit in message {
+            // Encription is (sum_{i in S} a_i, sum_{i in S} b_i + p/2 * bit)
             let mut encrypted_bit = (vec![Z::new(0); self.n], Z::new(0));
             for i in &s {
                 for j in 0..self.n {
